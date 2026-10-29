@@ -1,0 +1,47 @@
+name: Validate Grok Responses monitor 8413
+
+on:
+  push:
+    branches:
+      - validation/grok-responses-8413
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-grok-responses-8413
+  cancel-in-progress: false
+
+jobs:
+  go-regressions:
+    if: github.repository == 'wozhenbang2004/sub2api'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GOMAXPROCS: '2'
+      GOMEMLIMIT: 8GiB
+      GOGC: '100'
+      GOFLAGS: ''
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          check-latest: false
+          cache: false
+      - name: Verify source and toolchain
+        run: |
+          set -euo pipefail
+          printf 'Head: %s\n' "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          go version
+          test "$(go env GOVERSION)" = go1.27.3
+          free -h
+      - name: Run Grok Responses regressions with normal optimization
+        working-directory: backend
+        run: |
+          set -euo pipefail
+          /usr/bin/time -v go test -v -p 1 -tags=unit ./internal/service -run '^TestGrokResponsesMonitor' -count=1
